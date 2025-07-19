@@ -7,11 +7,13 @@ import torch.nn.functional as F
 from loguru import logger
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
+from torchvision import transforms
 
-TARGET_SIZE = 1024  # SAMに入力する画像の辺の長さ
+TARGET_SIZE = 1024  # DINOv2に入力する画像の辺の長さ
 
 
 def preprocess(x: np.ndarray) -> torch.Tensor:
+    """NumPy配列をDINOv2用のテンソルに前処理する"""
     # NumPy配列をPyTorchテンソルに変換
     x = torch.from_numpy(x).float()
 
@@ -19,39 +21,20 @@ def preprocess(x: np.ndarray) -> torch.Tensor:
     if x.dim() == 2:
         x = x.unsqueeze(0).unsqueeze(0)  # (H,W) -> (1,1,H,W)
 
-    x = apply_image(x)
+    # 1024x1024にリサイズ
+    x = F.interpolate(x, size=TARGET_SIZE, mode="bilinear", align_corners=False)
+    # 3チャンネルに変換
+    x = x.repeat(1, 3, 1, 1)  # バッチ次元を保持したまま3チャンネルに複製
 
+    # 0-255正規化
     min_val = x.min()
     max_val = x.max()
-
-    # 正規化を実行
-    x = (x - min_val) / (max_val - min_val) * 255
-    x = F.interpolate(x, size=TARGET_SIZE, mode="bilinear", align_corners=False)
+    if max_val > min_val:
+        x = (x - min_val) / (max_val - min_val) * 255
     
     # DataLoaderがバッチ次元を追加するため、余分なバッチ次元を削除
-    x = x.squeeze(0)  # (1,1,H,W) -> (1,H,W)
+    x = x.squeeze(0)  # (1,3,H,W) -> (3,H,W)
     return x
-
-
-def apply_image(image: torch.Tensor) -> torch.Tensor:
-    target_size = get_preprocess_shape(image.shape[2], image.shape[3], TARGET_SIZE)
-    return F.interpolate(
-        image, target_size, mode="bilinear", align_corners=False, antialias=True
-    )
-
-
-def get_preprocess_shape(
-    oldh: int, oldw: int, long_side_length: int
-) -> tuple[int, int]:
-    """
-    Compute the output size given input size and target long side length.
-    """
-    scale = long_side_length * 1.0 / max(oldh, oldw)
-    newh, neww = oldh * scale, oldw * scale
-    neww = int(neww + 0.5)
-    newh = int(newh + 0.5)
-    return (newh, neww)
-
 
 
 class MriDataset(Dataset):
@@ -59,10 +42,8 @@ class MriDataset(Dataset):
     前処理を行い、データセットを作成するクラス
     """
 
-    def __init__(self, nii_path, transform=None, target_transform=None):
+    def __init__(self, nii_path):
         self.nii_path = nii_path
-        self.transform = transform
-        self.target_transform = target_transform
         
         # MRIデータを読み込む
         self.mri_img = nib.load(nii_path)
@@ -86,25 +67,13 @@ class MriDataset(Dataset):
         if slice_max > slice_min:
             mri_slice = (mri_slice - slice_min) / (slice_max - slice_min)
         
-        # 0-255の範囲に変換
-        mri_slice = (mri_slice * 255).astype(np.uint8)
-        
-        # PIL.Imageに変換（グレースケールのまま）
-        image = Image.fromarray(mri_slice, mode='L')
-        
-        # 1024x1024にリサイズ
-        image = image.resize((TARGET_SIZE, TARGET_SIZE), Image.Resampling.BILINEAR)
-        
-        # Transformを適用
-        if self.transform:
-            image = self.transform(image)
+        mri_slice = preprocess(mri_slice)
+
         
         # ターゲット（自己教師あり学習では空のタプル）
         target = ()
-        if self.target_transform:
-            target = self.target_transform(target)
         
-        return image, target
+        return mri_slice, target
 
 
 if __name__ == "__main__":

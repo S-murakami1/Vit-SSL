@@ -207,11 +207,26 @@ def main():
     args = parser.parse_args()
     
     # 分散学習環境の設定（シングルGPU用）
-    os.environ.setdefault("RANK", "0")
-    os.environ.setdefault("WORLD_SIZE", "1")
-    os.environ.setdefault("LOCAL_RANK", "0")
-    os.environ.setdefault("MASTER_ADDR", "localhost")
-    os.environ.setdefault("MASTER_PORT", "12355")
+    # 既存の分散学習環境変数をクリア
+    distributed_env_vars = ["RANK", "WORLD_SIZE", "LOCAL_RANK", "LOCAL_WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT"]
+    for env_var in distributed_env_vars:
+        if env_var in os.environ:
+            del os.environ[env_var]
+    
+    # シングルGPU用の環境変数を明示的に設定
+    # これによりローカルモードが確実に使用される
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "29500"
+    os.environ["RANK"] = "0"
+    os.environ["WORLD_SIZE"] = "1"
+    os.environ["LOCAL_RANK"] = "0"
+    os.environ["LOCAL_WORLD_SIZE"] = "1"
+    
+    print("分散学習環境をシングルGPUモードに設定しました")
+    print(f"CUDA利用可能: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDAデバイス数: {torch.cuda.device_count()}")
+        print(f"現在のCUDAデバイス: {torch.cuda.current_device()}")
     
     # 設定ファイルの読み込み
     sys.argv = [
