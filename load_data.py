@@ -6,7 +6,7 @@ from loguru import logger
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 
-TARGET_SIZE = 896  # DINOv2に入力する画像の辺の長さ
+TARGET_SIZE = 896
 
 
 def numpy_to_pil(x: np.ndarray) -> Image.Image:
@@ -39,13 +39,15 @@ class MriDataset(Dataset):
     Args:
         nii_path: NIfTIファイルのパス 
         transform: PIL画像に適用する変換（DataAugmentationDINO等）
+        target_transform: ターゲットに適用する変換（通常は使用されない）
     Returns:
         PIL画像または変換後の辞書, target（空のタプル）
     """
 
-    def __init__(self, nii_path, transform=None):
+    def __init__(self, nii_path, transform=None, target_transform=None):
         self.nii_path = nii_path
         self.transform = transform
+        self.target_transform = target_transform  # target_transform引数を追加
         
         # MRIデータを読み込む
         self.mri_img = nib.load(nii_path)
@@ -72,6 +74,10 @@ class MriDataset(Dataset):
         
         # ターゲット（自己教師あり学習では空のタプル）
         target = ()
+        
+        # target_transformが指定されていれば適用
+        if self.target_transform:
+            target = self.target_transform(target)
         
         return pil_image, target
 

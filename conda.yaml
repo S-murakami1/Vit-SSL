@@ -6,16 +6,20 @@ channels:
   - nvidia
 dependencies:
   - python=3.9
-  - pytorch::pytorch=2.0.1
-  - pytorch::pytorch-cuda=11.8
-  - pytorch::torchvision=0.15.2
-  - pytorch::torchaudio=2.0.2
+  - pytorch::pytorch=1.13.1      # CUDA 11.4対応版
+  - pytorch::pytorch-cuda=11.6   # CUDA 11.4互換
+  - pytorch::torchvision=0.14.1  # 対応バージョン
+  - pytorch::torchaudio=0.13.1   # 対応バージョン
   - omegaconf
   - torchmetrics=0.10.3
   - fvcore
   - iopath
   - pip
+  - nibabel
+  - loguru
+  - pillow
+  - numpy
+  - scipy
   - pip:
     - git+https://github.com/facebookincubator/submitit
-    - nibabel
-    - loguru
+    - yacs
