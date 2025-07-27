@@ -1,0 +1,26 @@
+name: Vit-SSL-fix
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.9
+  - pytorch::pytorch=1.13.1      # CUDA 11.4対応
+  - pytorch::pytorch-cuda=11.6   # CUDA 11.4互換
+  - pytorch::torchvision=0.14.1
+  - pytorch::torchaudio=0.13.1
+  - intel-openmp                 # Intel JIT依存関係を修正
+  - mkl                          # Intel数学ライブラリ
+  - omegaconf
+  - fvcore
+  - iopath
+  - nibabel
+  - loguru
+  - pillow
+  - numpy
+  - scipy
+  - pip
+  - pip:
+    - git+https://github.com/facebookincubator/submitit
+    - yacs 

@@ -15,7 +15,21 @@ from torch.distributed.fsdp import ShardingStrategy
 from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp import StateDictType
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-from torch.distributed.fsdp.wrap import ModuleWrapPolicy
+# --- Compatibility for Torch < 2.1 (ModuleWrapPolicy absent) ---
+try:
+    from torch.distributed.fsdp.wrap import ModuleWrapPolicy  # Torch ≥2.1
+except ImportError:  # Torch 2.0系など
+    class _IdentityWrap:
+        """Fallback that returns identity (no auto-wrap)."""
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __call__(self, *args, **kwargs):
+            return False  # do not wrap anything
+
+    ModuleWrapPolicy = _IdentityWrap
+# ----------------------------------------------------------
 from torch.distributed.fsdp._runtime_utils import _reshard
 
 
